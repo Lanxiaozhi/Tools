@@ -1,3 +1,4 @@
+import argparse
 from flask import Flask, request
 
 app = Flask(__name__)
@@ -16,5 +17,11 @@ def add():
 
 
 if __name__ == "__main__":
+    parse = argparse.ArgumentParser()
+
+    parse.add_argument("-h", "--host", default='0.0.0.0')
+    parse.add_argument("-p", "--port", type=int, default=80)
+
+    args = parse.parse_args()
     print("Start Flask Server...")
     app.run(host="0.0.0.0")

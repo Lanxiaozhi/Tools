@@ -1,0 +1,2 @@
+docker>=3.5.1
+docker-py>=1.10.6
