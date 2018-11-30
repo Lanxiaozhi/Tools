@@ -1,6 +1,6 @@
 # import os
 import docker
-# import argparse
+import argparse
 import configparser
 
 client = docker.from_env()
@@ -89,9 +89,9 @@ def main():
 """
 
 
-def main():
+def pack(config_file):
     config = configparser.ConfigParser()
-    config.read("./pack.conf")
+    config.read(config_file)
     dockerfile_info, build_info, push_info = {}, {}, {}
     for item in config.options("DOCKERFILE"):
         dockerfile_info[item] = config.get("DOCKERFILE", item)
@@ -103,6 +103,16 @@ def main():
     image, log = build(build_info)
     push(push_info, image)
     client.close()
+
+
+def main():
+    parse = argparse.ArgumentParser()
+
+    parse.add_argument("-c", "--config")
+
+    args = parse.parse_args()
+
+    pack(args.config)
 
 
 if __name__ == "__main__":
