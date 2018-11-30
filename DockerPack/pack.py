@@ -1,34 +1,40 @@
 # import os
 import docker
-import json
-import argparse
+# import argparse
+import configparser
 
 client = docker.from_env()
 
 
-def create_dockerfile(local_dir_name, git_url, work_dir_name, run_cmd, env_list=[],
-                      base_image='python:3.6', maintainer='xlearn'):
-    assert local_dir_name is not None or git_url is not None, "local and git is both None!"
-    __dockerfile = ['FROM {} \n'.format(base_image),
-                    'MAINTAINER {} \n'.format(maintainer)]
-    for env in env_list:
+def create_dockerfile(info):
+    print("Start create dockerfile ...")
+    assert info["type"] in ["local", "git"], "Unknown pack type!"
+    __dockerfile = ['FROM {} \n'.format(info["base_image"]),
+                    'MAINTAINER {} \n'.format(info["maintainer"])]
+    for env in info["envs"].split(";"):
         __dockerfile.append('ENV {} \n'.format(str((" ").join(env.split(",")))))
-    if git_url is not None:
-        __dockerfile.append('RUN git clone {} \n'.format(git_url))
+    if info["type"] == "git":
+        __dockerfile.append('RUN git clone {} \n'.format(info["git_url"]))
     else:
-        __dockerfile.append('ADD {} {} \n'.format(local_dir_name, work_dir_name), )
+        __dockerfile.append('ADD {} {} \n'.format(info["local_dir"], info["work_dir"]), )
     __dockerfile.extend([
-        'WORKDIR {} \n'.format(work_dir_name),
-        'RUN pip install -r ./requirements.txt \n'.format(work_dir_name),
+        'WORKDIR {} \n'.format(info["work_dir"]),
+        'RUN pip install -r ./requirements.txt \n'.format(info["work_dir"]),
         # 'RUN python3 setup.py install \n',
-        'CMD {}~'.format(str(run_cmd.split(",")))])
+        'CMD {}~'.format(str(info["command"].split(",")))])
     with open("Dockerfile", 'w') as f:
         for cmd in __dockerfile:
             f.write(cmd)
+    print("Create dockerfile completed!")
 
 
-def build(tag):
-    return client.images.build(path='.', tag=tag)
+def build(info):
+    print("Start build image ...")
+    image, log = client.images.build(path='.', tag=info["image_tag"])
+    if info["show_log"] == "True":
+        show_log(log)
+    print("Build completed!")
+    return image, log
     # os.system("docker build -t {} .".format(tag))
 
 
@@ -37,29 +43,24 @@ def show_log(log):
         print(line.get("stream"))
 
 
-def push(image, repo, username, password):
-    if username and password:
-        client.login(username=username, password=password)
-    res = image.tag(repo)
+def push(info, image):
+    print("Start push image ...")
+    assert info["type"] in ["login_and_push", "push_only"], "Unknown push type!"
+    if info["type"] == "login_and_push":
+        client.login(username=info["username"], password=info["password"])
+    res = image.tag(info["dockerhub_repo"])
     if not res:
-        print("tag failed!")
+        print("Tag failed!")
         return
     else:
-        client.images.push(repository=repo)
-    # image_id = client.images.get(tag).short_id.replace("sha256:", "")
+        client.images.push(repository=info["dockerhub_repo"])
+    print("Push completed!")
     # os.system("docker tag {} {}".format(image_id, repo))
     # os.system("docker push {}".format(repo))
     # client.push(repository=repo)
 
 
 """
-def get_image_id(tag):
-    for item in client.images():
-        if tag in item["RepoTags"]:
-            return (item["Id"].replace("sha256:", ""))[:12]
-"""
-
-
 def main():
     parse = argparse.ArgumentParser()
 
@@ -85,10 +86,23 @@ def main():
     if args.repo:
         push(image=image, repo=args.repo, username=args.username, password=args.password)
     client.close()
+"""
 
 
-def test():
-    pass
+def main():
+    config = configparser.ConfigParser()
+    config.read("./pack.conf")
+    dockerfile_info, build_info, push_info = {}, {}, {}
+    for item in config.options("DOCKERFILE"):
+        dockerfile_info[item] = config.get("DOCKERFILE", item)
+    for item in config.options("BUILD"):
+        build_info[item] = config.get("BUILD", item)
+    for item in config.options("PUSH"):
+        push_info[item] = config.get("PUSH", item)
+    create_dockerfile(dockerfile_info)
+    image, log = build(build_info)
+    push(push_info, image)
+    client.close()
 
 
 if __name__ == "__main__":
