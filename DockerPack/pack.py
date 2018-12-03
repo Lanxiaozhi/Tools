@@ -1,4 +1,4 @@
-# import os
+import os
 import docker
 import argparse
 import configparser
@@ -6,21 +6,24 @@ import configparser
 client = docker.from_env()
 
 
+def clone(info):
+    if info["use_git"] == "True":
+        os.system(
+            "git clone https://{}:{}@github.com/{}.git".format(info["username"], info["password"], info["git_repo"]))
+
+
 def create_dockerfile(info):
     print("Start create dockerfile ...")
-    assert info["type"] in ["local", "git"], "Unknown pack type!"
     __dockerfile = ['FROM {} \n'.format(info["base_image"]),
                     'MAINTAINER {} \n'.format(info["maintainer"])]
-    for env in info["envs"].split(";"):
-        __dockerfile.append('ENV {} \n'.format(str((" ").join(env.split(",")))))
-    if info["type"] == "git":
-        __dockerfile.append('RUN git clone {} \n'.format(info["git_url"]))
-    else:
-        __dockerfile.append('ADD {} {} \n'.format(info["local_dir"], info["work_dir"]), )
+    if "envs" in info:
+        for env in info["envs"].split(";"):
+            __dockerfile.append('ENV {} \n'.format(str((" ").join(env.split(",")))))
     __dockerfile.extend([
+        'ADD {} {} \n'.format(info["local_dir"], info["work_dir"]),
         'WORKDIR {} \n'.format(info["work_dir"]),
-        'RUN pip install -r ./requirements.txt \n'.format(info["work_dir"]),
-        # 'RUN python3 setup.py install \n',
+        # 'RUN pip install -r ./requirements.txt \n'.format(info["work_dir"]),
+        'RUN python3 setup.py install \n',
         'CMD {}~'.format(str(info["command"].split(",")))])
     with open("Dockerfile", 'w') as f:
         for cmd in __dockerfile:
@@ -92,13 +95,16 @@ def main():
 def pack(config_file):
     config = configparser.ConfigParser()
     config.read(config_file)
-    dockerfile_info, build_info, push_info = {}, {}, {}
+    git_info, dockerfile_info, build_info, push_info = {}, {}, {}, {}
+    for item in config.options("GIT"):
+        git_info[item] = config.get("GIT", item)
     for item in config.options("DOCKERFILE"):
         dockerfile_info[item] = config.get("DOCKERFILE", item)
     for item in config.options("BUILD"):
         build_info[item] = config.get("BUILD", item)
     for item in config.options("PUSH"):
         push_info[item] = config.get("PUSH", item)
+    clone(git_info)
     create_dockerfile(dockerfile_info)
     image, log = build(build_info)
     push(push_info, image)
@@ -108,7 +114,7 @@ def pack(config_file):
 def main():
     parse = argparse.ArgumentParser()
 
-    parse.add_argument("-c", "--config")
+    parse.add_argument("-c", "--config", default="./pack.conf")
 
     args = parse.parse_args()
 
