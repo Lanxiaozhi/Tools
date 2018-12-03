@@ -24,7 +24,7 @@ def create_dockerfile(info):
         'WORKDIR {} \n'.format(info["work_dir"]),
         # 'RUN pip install -r ./requirements.txt \n'.format(info["work_dir"]),
         'RUN python3 setup.py install \n',
-        'CMD {}~'.format(str(info["command"].split(",")))])
+        'CMD {}~'.format(str(info["command"].split(",")).replace("\'", "\""))])
     with open("Dockerfile", 'w') as f:
         for cmd in __dockerfile:
             f.write(cmd)
