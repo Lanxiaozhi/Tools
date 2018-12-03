@@ -18,13 +18,15 @@ def create_dockerfile(info):
                     'MAINTAINER {} \n'.format(info["maintainer"])]
     if "envs" in info:
         for env in info["envs"].split(";"):
-            __dockerfile.append('ENV {} \n'.format(str((" ").join(env.split(",")))))
+            __dockerfile.append('ENV {} \n'.format(" ".join(env.split(","))))
     __dockerfile.extend([
         'ADD {} {} \n'.format(info["local_dir"], info["work_dir"]),
-        'WORKDIR {} \n'.format(info["work_dir"]),
-        # 'RUN pip install -r ./requirements.txt \n'.format(info["work_dir"]),
-        'RUN python3 setup.py install \n',
-        'CMD {}~'.format(str(info["command"].split(",")).replace("\'", "\""))])
+        'WORKDIR {} \n'.format(info["work_dir"])])
+    if "pre_list" in info:
+        for pre in info["pre_list"].split(";"):
+            __dockerfile.append('RUN {} \n'.format(" ".join(pre.split(","))))
+    __dockerfile.append(
+        'CMD {}~'.format(str(info["command"].split(",")).replace("\'", "\"")))
     with open("Dockerfile", 'w') as f:
         for cmd in __dockerfile:
             f.write(cmd)
