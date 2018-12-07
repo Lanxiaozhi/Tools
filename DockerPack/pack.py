@@ -26,7 +26,7 @@ def create_dockerfile(info):
         for pre in info["pre_list"].split(";"):
             __dockerfile.append('RUN {} \n'.format(" ".join(pre.split(","))))
     __dockerfile.append(
-        'CMD {}~'.format(str(info["command"].split(",")).replace("\'", "\"")))
+        'CMD {}'.format(str(info["command"].split(",")).replace("\'", "\"")))
     with open("Dockerfile", 'w') as f:
         for cmd in __dockerfile:
             f.write(cmd)
